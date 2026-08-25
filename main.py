@@ -17,7 +17,7 @@ def home():
 
 users_data = {}
 all_users = set()
-withdraw_temp = {}  # ইউজারের সাময়িক ডেটা জমানোর জন্য
+withdraw_temp = {}
 
 CHANNEL_USERNAME = "@wf_rahim_69_ff"
 GROUP_USERNAME = "@public_group_chate"
@@ -308,12 +308,12 @@ def get_withdraw_number(message):
     phone_number = message.text.strip()
     
     if user_id not in withdraw_temp:
-        bot.send_message(message.chat.id, "❌ সময়সীমা শেষ! দয়া করে আবার উইথড্র মেনুতে যান।")
+        bot.send_message(message.chat.id, "❌ সময়সীমা শেষ! দয়া করে আবার উইথড্র অপশনে যান।")
         return
         
     withdraw_temp[user_id]['phone'] = phone_number
+    bal = users_data.get(user_id, {}).get('balance', 0.0)
     
-    bal = users_data[user_id]['balance']
     msg = bot.send_message(
         message.chat.id,
         f"💳 আপনার নম্বর: `{phone_number}`\n\n"
@@ -330,23 +330,25 @@ def get_withdraw_amount(message):
     username = message.from_user.username if message.from_user.username else "নেই"
     
     if user_id not in withdraw_temp:
-        bot.send_message(message.chat.id, "❌ একটি সমস্যা হয়েছে! দয়া করে আবার চেষ্টা করুন।")
+        bot.send_message(message.chat.id, "❌ সময়সীমা পার হয়ে গেছে! দয়া করে আবার চেষ্টা করুন।")
         return
         
     method = withdraw_temp[user_id]['method']
     phone_number = withdraw_temp[user_id]['phone']
-    bal = users_data[user_id]['balance']
+    bal = users_data.get(user_id, {}).get('balance', 0.0)
     
     try:
         amount = float(message.text.strip())
         
-        # সর্বনিম্ন ১০০০ টাকা না হলে ব্যর্থ মেসেজ এবং এডমিন নোটিফিকেশন
+        # ১০০০ টাকার কম ট্রাই করার সময় মেসেজ ও এডমিনকে নোটিফিকেশন
         if amount < 1000:
             bot.send_message(
                 message.chat.id,
-                f"❌ **উইথড্র ব্যর্থ হয়েছে!**\n\nসর্বনিম্ন **১০০০ টাকা** হলে উইথড্র করতে পারবেন।\n• আপনি দিতে চেয়েছেন: ৳`{amount}`\n• আপনার বর্তমান ব্যালেন্স: ৳`{bal}`",
+                f"❌ **উইথড্র ব্যর্থ হয়েছে!**\n\nসর্বনিম্ন **১০০০ টাকা** না হলে উইথড্র করতে পারবেন না।\n• আপনি দিতে চেয়েছেন: ৳`{amount}`\n• আপনার বর্তমান ব্যালেন্স: ৳`{bal}`",
                 parse_mode="Markdown"
             )
+            
+            # এডমিন নোটিফিকেশন পাঠানো
             failed_notice = (
                 f"⚠️ **ব্যর্থ উইথড্র চেষ্টা!**\n\n"
                 f"👤 **ইউজার:** {first_name}\n"
@@ -357,7 +359,10 @@ def get_withdraw_amount(message):
                 f"💵 **চেষ্টা করা পরিমাণ:** ৳`{amount}` (১০০০ এর কম)\n"
                 f"💰 **বর্তমান ব্যালেন্স:** ৳`{bal}`"
             )
-            bot.send_message(ADMIN_ID, failed_notice, parse_mode="Markdown")
+            try:
+                bot.send_message(ADMIN_ID, failed_notice, parse_mode="Markdown")
+            except Exception as e:
+                print(f"Admin Notify Error: {e}")
             return
 
         if amount > bal:
@@ -384,6 +389,7 @@ def get_withdraw_amount(message):
             parse_mode="Markdown"
         )
         
+        # সফল উইথড্র নোটিফিকেশন এডমিনকে পাঠানো
         success_notice = (
             f"🚨 **নতুন উইথড্র রিকোয়েস্ট!**\n\n"
             f"👤 **ইউজার:** {first_name}\n"
@@ -394,7 +400,10 @@ def get_withdraw_amount(message):
             f"💰 **উইথড্র পরিমাণ:** ৳`{amount}` টাকা\n"
             f"📉 **অবশিষ্ট ব্যালেন্স:** ৳`{users_data[user_id]['balance']}` টাকা"
         )
-        bot.send_message(ADMIN_ID, success_notice, parse_mode="Markdown")
+        try:
+            bot.send_message(ADMIN_ID, success_notice, parse_mode="Markdown")
+        except Exception as e:
+            print(f"Admin Notify Error: {e}")
         
     except Exception:
         bot.send_message(
