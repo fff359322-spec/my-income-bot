@@ -1,17 +1,17 @@
 import telebot
 import sqlite3
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from flask import Flask
-from threading import Thread
+from threading import Thread, Lock, Timer
 import os
 import time
 
-# 🌐 Flask ওয়েব সার্ভার সেটআপ (24/7 অন রাখার জন্য)
+# 🌐 Flask ওয়েব সার্ভার (Render / Replit-এ ২৪/৭ অন রাখার জন্য)
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "WF Rahim Console: Bot is Running 24/7!"
+    return "Jahid Hassan Bot: System Running 24/7!"
 
 def run():
     port = int(os.environ.get("PORT", 10000))
@@ -21,7 +21,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# ----------------- নতুন টোকেন ও এডমিন আইডি -----------------
+# ----------------- বটের নতুন কনফিগারেশন -----------------
 
 API_TOKEN = os.environ.get('BOT_TOKEN', '8858854627:AAHeJbgMFU_9cxmtnZyisRwzmmJ8UB1JIWI')
 ADMIN_ID = 8454171811
@@ -32,37 +32,43 @@ CHANNEL_LINK = "https://t.me/wf_rahim_69_ff"
 GROUP_ID = "@public_group_chate"
 GROUP_LINK = "https://t.me/public_group_chate"
 
-BONUS_AMOUNT = 5.0            # প্রতি রেফারে ৫ টাকা
-MIN_WITHDRAW = 1000.0         # মিনিমাম উইথড্র অ্যামাউন্ট
+BONUS_AMOUNT = 5.0
 
 bot = telebot.TeleBot(API_TOKEN)
-BOT_USERNAME = "Mobile_Panel_bot"
+BOT_USERNAME = "new_bot"
 
 try:
     BOT_USERNAME = bot.get_me().username
 except Exception as e:
     print(f"Error getting bot username: {e}")
 
-# 🔒 ডাটাবেজ হ্যান্ডলার
+# 🔒 SQLite Database Handler (Lock & WAL Enabled)
+db_lock = Lock()
+
 def db_query(query, params=(), fetchone=False, fetchall=False, commit=False):
-    conn = sqlite3.connect('dynamic_bot_v3.db', timeout=10)
-    cursor = conn.cursor()
-    result = None
-    try:
-        cursor.execute(query, params)
-        if commit:
-            conn.commit()
-        if fetchone:
-            result = cursor.fetchone()
-        elif fetchall:
-            result = cursor.fetchall()
-    except Exception as e:
-        print(f"Database Error: {e}")
-    finally:
-        conn.close()
-    return result
+    with db_lock:
+        conn = sqlite3.connect('jahid_bot_v1.db', timeout=30.0)
+        cursor = conn.cursor()
+        result = None
+        try:
+            cursor.execute(query, params)
+            if commit:
+                conn.commit()
+            if fetchone:
+                result = cursor.fetchone()
+            elif fetchall:
+                result = cursor.fetchall()
+        except Exception as e:
+            print(f"Database Error: {e}")
+        finally:
+            conn.close()
+        return result
 
 def init_db():
+    conn = sqlite3.connect('jahid_bot_v1.db', timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.close()
+
     db_query('''
         CREATE TABLE IF NOT EXISTS buttons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,9 +122,8 @@ def init_db():
         "╚════════════════════╝\n\n"
         "👋 হ্যালো {name} ভাই, আশা করি ভালো আছেন!\n\n"
         "💵 আপনার অ্যাকাউন্ট ব্যালেন্স: ৳{balance} 💵\n"
-        "👥 আপনার মোট রেফার: {refers} জন\n"
-        "🔗 আপনার রেফারেল লিংক: {reflink}\n\n"
-        "🛒 প্যানেল কিনতে বা কাজ করতে নিচের বাটনগুলো ব্যবহার করুন।"
+        "👥 আপনার মোট রেফার: {refers} জন\n\n"
+        "🛒 প্যানেল কিনতে নিচের বাটনটি ব্যবহার করুন।"
     )
     db_query("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", ('welcome_message', default_welcome), commit=True)
 
@@ -153,9 +158,11 @@ def format_user_message(text, user_id, first_name):
     balance = res[0] if res else 0.0
     refers = res[1] if res else 0
     
-    formatted_text = text.replace("{name}", str(first_name if first_name else "User"))
+    formatted_text = text.replace("{first_name}", str(first_name if first_name else "User"))
+    formatted_text = formatted_text.replace("{name}", str(first_name if first_name else "User"))
     formatted_text = formatted_text.replace("{balance}", str(balance))
     formatted_text = formatted_text.replace("{refers}", str(refers))
+    formatted_text = formatted_text.replace("{ref_count}", str(refers))
     formatted_text = formatted_text.replace("{reflink}", reflink)
     formatted_text = formatted_text.replace("{bonus_amount}", str(BONUS_AMOUNT))
     return formatted_text
@@ -174,7 +181,7 @@ def get_main_reply_keyboard(user_id):
         if temp_row:
             markup.row(*temp_row)
         
-    markup.row(KeyboardButton("💳 Withdraw"), KeyboardButton("🛒 Buy Panel Keys"))
+    markup.row(KeyboardButton("🛒 Buy Panel Keys"))
     if user_id == ADMIN_ID:
         markup.row(KeyboardButton("⚙️ Admin Panel"))
     return markup
@@ -188,7 +195,7 @@ def get_inline_keyboard_for_level(parent_id, is_admin=False):
     if is_admin:
         markup.row(InlineKeyboardButton("➕ Add Sub-Button", callback_data=f"adm_add_{parent_id}"),
                    InlineKeyboardButton("✏️ Edit Text", callback_data=f"adm_edit_txt_{parent_id}"))
-        markup.row(InlineKeyboardButton("❌ Delete This Button", callback_data=f"adm_del_{parent_id}"))
+        markup.row(InlineKeyboardButton("❌ Delete Button", callback_data=f"adm_del_{parent_id}"))
     if parent_id != 0:
         res = db_query("SELECT parent_id FROM buttons WHERE id=?", (parent_id,), fetchone=True)
         back_id = res[0] if res else 0
@@ -213,19 +220,27 @@ def award_referral_bonus_if_eligible(user_id, first_name, username):
                 
                 ref_alert_msg = (
                     "╔════════════════════╗\n"
-                    "🔔   NEW REFERRAL SUCCESS   🔔\n"
+                    "🔔   NEW REFERRAL ALERT   🔔\n"
                     "╚════════════════════╝\n\n"
-                    "👤 রেফারকারী (Referrer):\n"
+                    "👤 রেফার দাতা (Referrer):\n"
                     f"├─ নাম: {referrer_name}\n"
                     f"└─ আইডি: {referrer_id}\n\n"
-                    "📥 নতুন মেম্বার (Accepted Member):\n"
+                    "📥 নতুন সদস্য (Joined Member):\n"
                     f"├─ নাম: {joined_name}\n"
                     f"├─ আইডি: {user_id}\n"
                     f"└─ ইউজারনেম: {joined_username}\n\n"
-                    f"💰 রেফারকারী বোনাস পেয়েছেন: +৳{BONUS_AMOUNT} টাকা!"
+                    f"💰 রেফার দাতা বোনাস পেয়েছে: +৳{BONUS_AMOUNT} টাকা!"
                 )
                 
                 bot.send_message(ADMIN_ID, ref_alert_msg, disable_web_page_preview=True)
+                
+                grp_msg = bot.send_message(GROUP_ID, ref_alert_msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+                def delete_group_msg():
+                    try:
+                        bot.delete_message(GROUP_ID, grp_msg.message_id)
+                    except Exception:
+                        pass
+                Timer(4.0, delete_group_msg).start()
                 
             except Exception as e:
                 print(f"Referral alert notification error: {e}")
@@ -236,7 +251,7 @@ def award_referral_bonus_if_eligible(user_id, first_name, username):
                     "🎁   REFERRAL BONUS   🎁\n"
                     "╚════════════════════╝\n\n"
                     "⚡ নতুন রেফারাল বোনাস পেয়েছেন!\n"
-                    f"👤 আপনার রেফারেল লিঙ্কে {first_name} ভেরিফাই সম্পূর্ণ করেছে।\n"
+                    f"👤 আপনার বন্ধু {first_name} সফলভাবে ভেরিফাই হয়েছে।\n"
                     f"💰 আপনি পেয়েছেন: +৳{BONUS_AMOUNT} টাকা!"
                 )
                 bot.send_message(referrer_id, msg, disable_web_page_preview=True)
@@ -278,14 +293,14 @@ def start_cmd(message):
         join_markup = InlineKeyboardMarkup()
         join_markup.add(InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
         join_markup.add(InlineKeyboardButton("💬 Join Group", url=GROUP_LINK))
-        join_markup.add(InlineKeyboardButton("✅ Verify", callback_data="verify_and_claim"))
+        join_markup.add(InlineKeyboardButton("✅ Verify & Claim Bonus", callback_data="verify_and_claim"))
         
         verify_text = (
             "╔════════════════════╗\n"
             "⚠️    JOIN OUR CHANNEL & GROUP    ⚠️\n"
             "╚════════════════════╝\n\n"
             "বটটি ব্যবহার করতে এবং বোনাস ক্লেইম করতে আপনাকে অবশ্যই আমাদের অফিশিয়াল চ্যানেল ও গ্রুপে জয়েন করতে হবে।\n\n"
-            f"📢 চ্যানেল: {CHANNEL_LINK}\n"
+            f"📢 চ্যানেল: {CHANNEL_ID}\n"
             f"💬 গ্রুপ: {GROUP_LINK}\n\n"
             "উভয় স্থানে জয়েন করার পর নিচের Verify বাটনে ক্লিক করুন।"
         )
@@ -296,32 +311,45 @@ def handle_messages(message):
     chat_id = message.chat.id
     user_id = message.from_user.id
     text = message.text
+    chat_type = message.chat.type
     is_admin = (user_id == ADMIN_ID)
 
     if is_user_banned(user_id):
-        bot.send_message(chat_id, "🚫 দুঃখিত ভাই, আপনাকে এই বটের ভেতর ব্যান করা হয়েছে!")
+        if chat_type == 'private':
+            bot.send_message(chat_id, "🚫 দুঃখিত ভাই, আপনাকে এই বটের ভেতর ব্যান করা হয়েছে!")
         return
 
+    # 👥 গ্রুপে মেসেজের উত্তর এবং ৪ সেকেন্ড পর অটো ডিলিট
+    if chat_type in ['group', 'supergroup']:
+        bot_link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
+        
+        group_markup = InlineKeyboardMarkup()
+        group_markup.add(InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
+        group_markup.add(InlineKeyboardButton("🤖 Open & Start Bot", url=bot_link))
+        
+        grp_text = "বট ব্যাবহার করতে পেইড পেনেল ফ্রী নিতে মেইন চ্যানেলে জইন করুন"
+        
+        sent_msg = bot.reply_to(message, grp_text, reply_markup=group_markup)
+        
+        def auto_delete_reply():
+            try:
+                bot.delete_message(chat_id, sent_msg.message_id)
+            except Exception:
+                pass
+        Timer(4.0, auto_delete_reply).start()
+        return
+
+    # 👤 প্রাইভেট ইনবক্স
     if not is_user_joined(user_id) and not is_admin:
         join_markup = InlineKeyboardMarkup()
         join_markup.add(InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
         join_markup.add(InlineKeyboardButton("💬 Join Group", url=GROUP_LINK))
-        join_markup.add(InlineKeyboardButton("✅ Verify", callback_data="verify_and_claim"))
+        join_markup.add(InlineKeyboardButton("✅ Verify & Claim Bonus", callback_data="verify_and_claim"))
         bot.send_message(chat_id, "⚠️ বট ব্যবহার করতে প্রথমে আমাদের চ্যানেল ও গ্রুপে জয়েন করুন!", reply_markup=join_markup, disable_web_page_preview=True)
         return
 
     if chat_id in user_states and user_states[chat_id] is not None:
         handle_admin_inputs(message)
-        return
-
-    if text == "💳 Withdraw":
-        res = db_query("SELECT balance FROM users WHERE user_id=?", (user_id,), fetchone=True)
-        user_bal = res[0] if res else 0.0
-        
-        if user_bal >= MIN_WITHDRAW:
-            bot.send_message(chat_id, f"✅ আপনার বর্তমান ব্যালেন্স ৳{user_bal} টাকা। উইথড্র করতে এডমিনের সাথে যোগাযোগ করুন।")
-        else:
-            bot.send_message(chat_id, f"⚠️ উইথড্র করতে সর্বনিম্ন ১০০০ টাকা কমপ্লিট করতে হবে!\n\n💵 আপনার বর্তমান ব্যালেন্স: ৳{user_bal} টাকা।")
         return
 
     if text == "🛒 Buy Panel Keys":
@@ -343,11 +371,10 @@ def handle_messages(message):
     if text == "⚙️ Admin Panel" and is_admin:
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("➕ Add Main Button", callback_data="adm_add_0"),
-                   InlineKeyboardButton("❌ Delete Main Button", callback_data="adm_del_main_start"))
-        markup.add(InlineKeyboardButton("💰 Edit User Balance", callback_data="adm_bal_start"),
-                   InlineKeyboardButton("📦 Manage Stock & Keys", callback_data="adm_manage_stock"))
-        markup.add(InlineKeyboardButton("📊 Bot Statistics", callback_data="adm_stats"),
-                   InlineKeyboardButton("📢 Broadcast to All Users", callback_data="adm_broadcast"))
+                   InlineKeyboardButton("💰 Edit User Balance", callback_data="adm_bal_start"))
+        markup.add(InlineKeyboardButton("📦 Manage Stock & Keys", callback_data="adm_manage_stock"),
+                   InlineKeyboardButton("📊 Bot Statistics", callback_data="adm_stats"))
+        markup.add(InlineKeyboardButton("📢 Broadcast to All Users", callback_data="adm_broadcast"))
         markup.add(InlineKeyboardButton("🚫 Ban/Unban User", callback_data="adm_ban_start"),
                    InlineKeyboardButton("✍️ Edit Welcome Message", callback_data="adm_edit_welcome"))
         markup.add(InlineKeyboardButton("⚠️ Reset Bot", callback_data="adm_clear_all"))
@@ -468,7 +495,7 @@ def handle_callbacks(call):
                     except Exception as e:
                         print(f"Admin purchase alert error: {e}")
                 else:
-                    bot.send_message(chat_id, "❌ দুঃখিত! এই প্যাকেজটি বর্তমানে আউট অফ স্টক। এডমিনের সাথে যোগাযোগ করুন।")
+                    bot.send_message(chat_id, "❌ দুঃখিত! এই প্যাকেজটি বর্তমানে আউট অফ স্টক (Out of stock)। অ্যাডমিনের সাথে যোগাযোগ করুন।")
             else:
                 bot.send_message(chat_id, f"❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই!\n\nপ্রয়োজনীয় ব্যালেন্স: ৳{price} 💵\nআপনার বর্তমান ব্যালেন্স: ৳{user_bal} 💵")
 
@@ -549,31 +576,22 @@ def handle_callbacks(call):
             bot.send_message(chat_id, "Send the User ID:")
         elif data == "adm_edit_welcome":
             user_states[chat_id] = {'action': 'edit_welcome'}
-            bot.send_message(chat_id, "Send the new Welcome Message (Use {name}, {balance}, {refers}, {reflink}):")
+            bot.send_message(chat_id, "Send the new Welcome Message (Use {name}, {balance}, {refers}):")
         elif data.startswith("adm_add_"):
             user_states[chat_id] = {'action': 'add_btn', 'parent_id': int(data.split("_")[2])}
             bot.send_message(chat_id, "Send the button name:")
         elif data.startswith("adm_edit_txt_"):
             user_states[chat_id] = {'action': 'edit_txt', 'btn_id': int(data.split("_")[3])}
             bot.send_message(chat_id, "Send the text content:")
-        elif data == "adm_del_main_start":
-            rows = db_query("SELECT id, name FROM buttons WHERE parent_id=0", fetchall=True)
-            markup = InlineKeyboardMarkup()
-            if rows:
-                for row in rows:
-                    markup.add(InlineKeyboardButton(f"🗑️ {row[1]}", callback_data=f"adm_del_{row[0]}"))
-                bot.send_message(chat_id, "সিলেক্ট করুন কোন মেইন বাটনটি ডিলিট করতে চান:", reply_markup=markup)
-            else:
-                bot.send_message(chat_id, "❌ ডিলিট করার মতো কোনো মেইন বাটন পাওয়া যায়নি!")
         elif data.startswith("adm_del_"):
             btn_id = int(data.split("_")[2])
             db_query("DELETE FROM buttons WHERE id=? OR parent_id=?", (btn_id, btn_id), commit=True)
-            bot.send_message(chat_id, "✅ বাটনটি এবং এর অধীনস্থ সকল সাব-বাটন সফলভাবে ডিলিট করা হয়েছে!", reply_markup=get_main_reply_keyboard(user_id))
+            bot.send_message(chat_id, "Deleted successfully!")
         elif data == "adm_clear_all":
             db_query("DELETE FROM buttons", commit=True)
             db_query("DELETE FROM packages", commit=True)
             db_query("DELETE FROM stock_keys", commit=True)
-            bot.send_message(chat_id, "Buttons and Stock reset completely!", reply_markup=get_main_reply_keyboard(user_id))
+            bot.send_message(chat_id, "Buttons and Stock reset completely!")
 
 def handle_admin_inputs(message):
     chat_id = message.chat.id
@@ -671,7 +689,7 @@ def handle_admin_inputs(message):
 
     elif state['action'] == 'add_btn':
         db_query("INSERT INTO buttons (name, parent_id) VALUES (?, ?)", (text, state['parent_id']), commit=True)
-        bot.send_message(chat_id, "✅ Button added successfully!", reply_markup=get_main_reply_keyboard(message.from_user.id))
+        bot.send_message(chat_id, "✅ Button added!")
         user_states[chat_id] = None
 
     elif state['action'] == 'edit_txt':
@@ -681,5 +699,5 @@ def handle_admin_inputs(message):
 
 if __name__ == "__main__":
     keep_alive()
-    print("WF Rahim Console: Super Advanced Shop Bot is running...")
+    print("Jahid Hassan Console: Bot is running...")
     bot.infinity_polling()
