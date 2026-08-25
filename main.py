@@ -74,7 +74,8 @@ def start_cmd(message):
     
     bot.send_message(
         message.chat.id,
-        f"স্বাগতম {first_name}!\n\nবটটি ব্যবহার করতে আমাদের চ্যানেল ও গ্রুপে জয়েন করে **ভেরিফাই করুন** বাটনে চাপ দিন।",
+        f"✨ **স্বাগতম, {first_name}!**\n\nবটটি সম্পূর্ণ ব্যবহারের জন্য আমাদের চ্যানেল ও গ্রুপে জয়েন করে নিচের **ভেরিফাই করুন** বাটনে ক্লিক করুন। 👇",
+        parse_mode="Markdown",
         reply_markup=markup
     )
 
@@ -95,19 +96,8 @@ def verify_callback(call):
                 'username': call.from_user.username
             })
             
-            ref_msg = (
-                f"🔔 **নতুন রেফার জয়েন করেছে!**\n\n"
-                f"👤 **রেফারকারী (Referrer):**\n"
-                f"• আইডি: `{referrer_id}`\n\n"
-                f"📥 **নতুন ইউজার:**\n"
-                f"• নাম: {first_name}\n"
-                f"• আইডি: `{user_id}`\n"
-                f"• ইউজারনেম: @{call.from_user.username if call.from_user.username else 'নেই'}\n\n"
-                f"💰 রেফারকারী ২০ টাকা বোনাস পেয়েছেন।"
-            )
             try:
-                bot.send_message(ADMIN_ID, ref_msg, parse_mode="Markdown")
-                bot.send_message(referrer_id, f"🎉 আপনার রেফারকৃত ইউজার {first_name} ভেরিফাই সম্পন্ন করেছেন! আপনি ২০ টাকা বোনাস পেয়েছেন।")
+                bot.send_message(referrer_id, f"🎉 অভিনন্দন! আপনার রেফারকৃত ইউজার {first_name} ভেরিফাই সম্পন্ন করেছেন। আপনি ২০ টাকা বোনাস পেয়েছেন।")
             except Exception:
                 pass
 
@@ -120,11 +110,14 @@ def verify_callback(call):
         bot.answer_callback_query(call.id, "✅ ভেরিফিকেশন সফল হয়েছে!")
         bot.send_message(
             call.message.chat.id,
-            "✅ আপনার ভেরিফিকেশন সফল হয়েছে! নিচের মেনু থেকে অপশন নির্বাচন করুন:",
+            "🚀 **ভেরিফিকেশন সফল!**\n\nনিচের মেনু থেকে আপনার পছন্দমত অপশন বেছে নিন:",
+            parse_mode="Markdown",
             reply_markup=markup
         )
     else:
-        bot.answer_callback_query(call.id, "❌ আপনি এখনও গ্রুপ বা চ্যানেলে জয়েন করেননি!", show_alert=True)
+        bot.answer_callback_query(call.id, "❌ আপনি এখনও চ্যানেল বা গ্রুপে জয়েন করেননি!", show_alert=True)
+
+# ----------------- এডমিন প্যানেল -----------------
 
 @bot.message_handler(func=lambda message: message.text == "⚙️ এডমিন প্যানেল" and message.from_user.id == ADMIN_ID)
 def admin_panel(message):
@@ -143,7 +136,7 @@ def admin_callbacks(call):
         return
         
     if call.data == "admin_stats":
-        bot.send_message(call.message.chat.id, f"📈 **মোট ইউজার:** {len(all_users)} জন", parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, f"📈 **মোট ইউজার:** `{len(all_users)}` জন", parse_mode="Markdown")
         
     elif call.data == "admin_broadcast":
         msg = bot.send_message(call.message.chat.id, "📢 ব্রডকাস্ট মেসেজটি লিখুন:")
@@ -161,11 +154,11 @@ def process_broadcast(message):
     count = 0
     for u_id in all_users:
         try:
-            bot.send_message(u_id, f"📢 **এডমিন মেসেজ:**\n\n{message.text}", parse_mode="Markdown")
+            bot.send_message(u_id, f"📢 **এডমিন নোটিশ:**\n\n{message.text}", parse_mode="Markdown")
             count += 1
         except Exception:
             pass
-    bot.send_message(message.chat.id, f"✅ {count} জনের কাছে পাঠানো হয়েছে!")
+    bot.send_message(message.chat.id, f"✅ মোট `{count}` জনের কাছে পাঠানো হয়েছে!")
 
 def process_addbal(message):
     try:
@@ -173,11 +166,11 @@ def process_addbal(message):
         u_id = int(u_id)
         if u_id in users_data:
             users_data[u_id]['balance'] += amount
-            bot.send_message(message.chat.id, f"✅ ইউজার `{u_id}`-কে ৳{amount} টাকা দেওয়া হয়েছে।", parse_mode="Markdown")
+            bot.send_message(message.chat.id, f"✅ ইউজার `{u_id}`-কে ৳`{amount}` টাকা দেওয়া হয়েছে।", parse_mode="Markdown")
         else:
             bot.send_message(message.chat.id, "❌ ইউজার খুঁজে পাওয়া যায়নি!")
     except Exception:
-        bot.send_message(message.chat.id, "❌ ভুল ফরম্যাট!")
+        bot.send_message(message.chat.id, "❌ ভুল ফরম্যাট! সঠিকভাবে লিখুন।")
 
 def process_cutbal(message):
     try:
@@ -185,11 +178,13 @@ def process_cutbal(message):
         u_id = int(u_id)
         if u_id in users_data:
             users_data[u_id]['balance'] -= amount
-            bot.send_message(message.chat.id, f"✅ ইউজার `{u_id}` থেকে ৳{amount} টাকা কাটা হয়েছে।", parse_mode="Markdown")
+            bot.send_message(message.chat.id, f"✅ ইউজার `{u_id}` থেকে ৳`{amount}` টাকা কাটা হয়েছে।", parse_mode="Markdown")
         else:
             bot.send_message(message.chat.id, "❌ ইউজার খুঁজে পাওয়া যায়নি!")
     except Exception:
-        bot.send_message(message.chat.id, "❌ ভুল ফরম্যাট!")
+        bot.send_message(message.chat.id, "❌ ভুল ফরম্যাট! সঠিকভাবে লিখুন।")
+
+# ----------------- সাধারণ ইউজার হ্যান্ডলার -----------------
 
 @bot.message_handler(func=lambda message: True)
 def user_handlers(message):
@@ -222,7 +217,11 @@ def user_handlers(message):
         ref_count = len(users_data[user_id]['referrals'])
         bot.send_message(
             message.chat.id,
-            f"👤 **অ্যাকাউন্ট বিবরণী:**\n\n💰 বর্তমান ব্যালেন্স: ৳{bal} টাকা\n👥 সফল রেফারেল: {ref_count} জন",
+            f"👤 **আপনার অ্যাকাউন্ট বিবরণী:**\n\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 **বর্তমান ব্যালেন্স:** ৳{bal} টাকা\n"
+            f"👥 **সফল রেফারেল:** {ref_count} জন\n"
+            f"━━━━━━━━━━━━━━━━━━━",
             parse_mode="Markdown"
         )
         
@@ -242,10 +241,10 @@ def user_handlers(message):
         share_markup.add(types.InlineKeyboardButton("🔗 শেয়ার করুন (Share)", url=share_url))
         
         msg_text = (
-            f"🔗 **আপনার রেফার লিংক:**\n\n"
+            f"🔗 **আপনার ব্যক্তিগত রেফার লিংক:**\n\n"
             f"`{ref_link}`\n\n"
             f"📢 প্রতি সফল রেফারে পাবেন **২০ টাকা** বোনাস!\n"
-            f"👇 বন্ধুদের কাছে পাঠাতে নিচের **শেয়ার করুন** বাটনে চাপ দিন।"
+            f"👇 বন্ধুদের কাছে দ্রুত পাঠাতে নিচের **শেয়ার করুন** বাটনে চাপ দিন।"
         )
         
         bot.send_message(
@@ -256,35 +255,104 @@ def user_handlers(message):
         )
         
     elif text == "📤 উইথড্র (Withdraw)":
-        bal = users_data[user_id]['balance']
-        if bal >= 1000:
-            bot.send_message(
-                message.chat.id,
-                "✅ আপনার উইথড্র রিকোয়েস্ট জমা নেওয়া হয়েছে! এডমিন খুব শীঘ্রই চেক করবেন।"
-            )
-            bot.send_message(
-                ADMIN_ID,
-                f"🚨 **নতুন উইথড্র রিকোয়েস্ট!**\n\n👤 নাম: {message.from_user.first_name}\n🆔 আইডি: `{user_id}`\n💰 পরিমাণ: ৳{bal} টাকা",
-                parse_mode="Markdown"
-            )
-        else:
-            needed = 1000 - bal
-            bot.send_message(
-                message.chat.id,
-                f"❌ উইথড্র করার জন্য আপনার ব্যালেন্সে কমপক্ষে **১০০০ টাকা** থাকতে হবে।\n\n• বর্তমান ব্যালেন্স: ৳{bal}\n• আরও প্রয়োজন: ৳{needed}",
-                parse_mode="Markdown"
-            )
+        withdraw_markup = types.InlineKeyboardMarkup(row_width=2)
+        withdraw_markup.add(
+            types.InlineKeyboardButton("💵 বিকাশ (Bkash)", callback_data="withdraw_bkash"),
+            types.InlineKeyboardButton("📱 নগদ (Nagad)", callback_data="withdraw_nagad")
+        )
+        bot.send_message(
+            message.chat.id,
+            "💸 **পেমেন্ট মেথড নির্বাচন করুন:**\n\nআপনি কোন মাধ্যমে টাকা নিতে চান তা নিচের বাটন থেকে সিলেক্ট করুন। 👇",
+            parse_mode="Markdown",
+            reply_markup=withdraw_markup
+        )
             
     elif text == "ℹ️ নিয়মাবলী":
         bot.send_message(
             message.chat.id,
-            "📜 **নিয়মাবলী:**\n\n১. চ্যানেল ও গ্রুপে জয়েন থাকা বাধ্যতামূলক।\n২. প্রতি রেফারে ২০ টাকা বোনাস পাবেন।\n৩. ১০০০ টাকা হলে উইথড্র করা যাবে।"
+            "📜 **বট ব্যবহারের নিয়মাবলী:**\n\n"
+            "১. আমাদের চ্যানেল ও গ্রুপে অবশ্যই জয়েন থাকতে হবে।\n"
+            "২. প্রতি রেফারে পাবেন **২০ টাকা** বোনাস।\n"
+            "৩. সর্বনিম্ন **১০০০ টাকা** হলে বিকাশ বা নগদে উইথড্র করতে পারবেন।",
+            parse_mode="Markdown"
         )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("withdraw_"))
+def withdraw_method_callback(call):
+    user_id = call.from_user.id
+    bal = users_data[user_id]['balance']
+    
+    if bal < 1000:
+        bot.answer_callback_query(
+            call.id, 
+            f"❌ অপর্যাপ্ত ব্যালেন্স! উইথড্র করতে হলে কমপক্ষে ১০০০ টাকা থাকতে হবে। আপনার আছে: ৳{bal}", 
+            show_alert=True
+        )
+        return
+
+    method = "বিকাশ (Bkash)" if call.data == "withdraw_bkash" else "নগদ (Nagad)"
+    
+    msg = bot.send_message(
+        call.message.chat.id,
+        f"✅ আপনি **{method}** সিলেক্ট করেছেন।\n\n"
+        f"💰 আপনার বর্তমান ব্যালেন্স: ৳`{bal}` টাকা\n\n"
+        f"📝 এখন আপনার পেমেন্ট নম্বরটি এবং কত টাকা উইথড্র করতে চান তা লিখে পাঠান।\n"
+        f"*(উদাহরণ: `017xxxxxxxx 1000`)*",
+        parse_mode="Markdown"
+    )
+    bot.register_next_step_handler(msg, process_withdraw_request, method)
+
+def process_withdraw_request(message, method):
+    user_id = message.from_user.id
+    bal = users_data[user_id]['balance']
+    
+    try:
+        parts = message.text.split()
+        phone_number = parts[0]
+        amount = float(parts[1])
+        
+        if amount > bal:
+            bot.send_message(message.chat.id, "❌ আপনার ব্যালেন্সে এত টাকা নেই! দয়া করে সঠিক পরিমাণ লিখুন।")
+            return
+            
+        if amount < 1000:
+            bot.send_message(message.chat.id, "❌ সর্বনিম্ন ১০০০ টাকা উইথড্র করতে হবে।")
+            return
+
+        # ব্যালেন্স কেটে নেওয়া বা উইথড্র প্রসেস সফল মেসেজ (গ্রুপে কোনো মেসেজ যাবে না)
+        users_data[user_id]['balance'] -= amount
+        
+        bot.send_message(
+            message.chat.id,
+            f"🎉 **উইথড্র রিকোয়েস্ট সফলভাবে জমা হয়েছে!**\n\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"💳 **মেথড:** {method}\n"
+            f"📞 **নম্বর:** `{phone_number}`\n"
+            f"💵 **পরিমাণ:** ৳`{amount}` টাকা\n"
+            f"📌 **স্ট্যাটাস:** পেন্ডিং (Pending)\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"এডমিন খুব শীঘ্রই আপনার পেমেন্টটি চেক করে পাঠিয়ে দেবেন। ধন্যবাদ!",
+            parse_mode="Markdown"
+        )
+        
+        # শুধুমাত্র এডমিনকে নোটিশ পাঠানো হবে, গ্রুপে যাবে না
+        bot.send_message(
+            ADMIN_ID,
+            f"🚨 **নতুন উইথড্র রিকোয়েস্ট!**\n\n"
+            f"👤 নাম: {message.from_user.first_name}\n"
+            f"🆔 আইডি: `{user_id}`\n"
+            f"💳 মেথড: {method}\n"
+            f"📞 নম্বর: `{phone_number}`\n"
+            f"💰 পরিমাণ: ৳`{amount}` টাকা",
+            parse_mode="Markdown"
+        )
+        
+    except Exception:
+        bot.send_message(message.chat.id, "❌ ভুল ফরম্যাট! দয়া করে সঠিক নিয়মে নম্বর ও পরিমাণ লিখুন। (যেমন: `017xxxxxxxx 1000`)")
 
 def run_bot():
     bot.infinity_polling(timeout=20, long_polling_timeout=20)
 
-# ব্যাকগ্রাউন্ড থ্রেডে বট পোলিং চালুর নিয়ম
 t = Thread(target=run_bot)
 t.daemon = True
 t.start()
