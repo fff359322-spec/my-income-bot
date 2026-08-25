@@ -5,30 +5,19 @@ from telebot import types
 from flask import Flask
 from threading import Thread
 
-# কনফিগারেশন
 TOKEN = "8858854627:AAHeJbgMFU_9cxmtnZyisRwzmmJ8UB1JIWI"
-ADMIN_ID = 8454171811  # Jahid Hassan Admin ID
+ADMIN_ID = 8454171811
 
-bot = telebot.TeleBot(TOKEN)
-app = Flask('')
+bot = telebot.TeleBot(TOKEN, threaded=False)
+app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Jahid Hassan Bot is Active 24/7!"
 
-def run():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# ডেটাবেজ
 users_data = {}
 all_users = set()
 
-# গ্রুপ ও চ্যানেল ইউজারনেম (@ সহ)
 CHANNEL_USERNAME = "@wf_rahim_69_ff"
 GROUP_USERNAME = "@public_group_chate"
 
@@ -36,7 +25,6 @@ CHANNEL_LINK = "https://t.me/wf_rahim_69_ff"
 GROUP_LINK = "https://t.me/public_group_chate"
 
 def is_user_joined(user_id):
-    """ টেলিগ্রামের মাধ্যমে চেক করবে ইউজার গ্রুপে ও চ্যানেলে আছে কিনা """
     if user_id == ADMIN_ID:
         return True
     try:
@@ -138,8 +126,6 @@ def verify_callback(call):
     else:
         bot.answer_callback_query(call.id, "❌ আপনি এখনও গ্রুপ বা চ্যানেলে জয়েন করেননি!", show_alert=True)
 
-# ----------------- এডমিন প্যানেল -----------------
-
 @bot.message_handler(func=lambda message: message.text == "⚙️ এডমিন প্যানেল" and message.from_user.id == ADMIN_ID)
 def admin_panel(message):
     admin_markup = types.InlineKeyboardMarkup(row_width=2)
@@ -205,8 +191,6 @@ def process_cutbal(message):
     except Exception:
         bot.send_message(message.chat.id, "❌ ভুল ফরম্যাট!")
 
-# ----------------- সাধারণ ইউজার হ্যান্ডলার -----------------
-
 @bot.message_handler(func=lambda message: True)
 def user_handlers(message):
     user_id = message.from_user.id
@@ -246,7 +230,6 @@ def user_handlers(message):
         bot_name = bot.get_me().username
         ref_link = f"https://t.me/{bot_name}?start=ref_{user_id}"
         
-        # এখানে প্রথমে উপরে লেখা এবং সবার নিচে লিংক সেট করা হয়েছে
         share_text = (
             f"🔥 এখনই জয়েন করুন এবং রেফার করে প্রতিদিন টাকা ইনকাম করুন!\n\n"
             f"👇 জয়েন লিংক:\n"
@@ -298,6 +281,14 @@ def user_handlers(message):
             "📜 **নিয়মাবলী:**\n\n১. চ্যানেল ও গ্রুপে জয়েন থাকা বাধ্যতামূলক।\n২. প্রতি রেফারে ২০ টাকা বোনাস পাবেন।\n৩. ১০০০ টাকা হলে উইথড্র করা যাবে।"
         )
 
+def run_bot():
+    bot.infinity_polling(timeout=20, long_polling_timeout=20)
+
+# ব্যাকগ্রাউন্ড থ্রেডে বট পোলিং চালুর নিয়ম
+t = Thread(target=run_bot)
+t.daemon = True
+t.start()
+
 if __name__ == '__main__':
-    keep_alive()
-    bot.infinity_polling()
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
