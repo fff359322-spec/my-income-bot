@@ -17,6 +17,7 @@ def home():
 
 users_data = {}
 all_users = set()
+withdraw_temp = {}  # ইউজারের সাময়িক ডেটা জমানোর জন্য
 
 CHANNEL_USERNAME = "@wf_rahim_69_ff"
 GROUP_USERNAME = "@public_group_chate"
@@ -285,43 +286,67 @@ def user_handlers(message):
             parse_mode="Markdown"
         )
 
-# ----------------- উইথড্র প্রসেসিং -----------------
+# ----------------- ধাপভিত্তিক উইথড্র প্রসেসিং -----------------
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("withdraw_"))
 def withdraw_method_callback(call):
     user_id = call.from_user.id
-    bal = users_data[user_id]['balance']
     method = "বিকাশ (Bkash)" if call.data == "withdraw_bkash" else "নগদ (Nagad)"
+    
+    withdraw_temp[user_id] = {'method': method}
     
     msg = bot.send_message(
         call.message.chat.id,
         f"✅ আপনি **{method}** সিলেক্ট করেছেন।\n\n"
-        f"💰 আপনার বর্তমান ব্যালেন্স: ৳`{bal}` টাকা\n\n"
-        f"📝 আপনার **অ্যাকাউন্ট নম্বর** এবং **টাকার পরিমাণ** একসাথে লিখে মেসেজ দিন।\n"
-        f"*(উদাহরণ: `017xxxxxxxx 1000`)*",
+        f"📱 এখন আপনার সঠিক **বিকাশ/নগদ অ্যাকাউন্ট নম্বরটি** লিখে পাঠান:",
         parse_mode="Markdown"
     )
-    bot.register_next_step_handler(msg, process_withdraw_request, method)
+    bot.register_next_step_handler(msg, get_withdraw_number)
 
-def process_withdraw_request(message, method):
+def get_withdraw_number(message):
+    user_id = message.from_user.id
+    phone_number = message.text.strip()
+    
+    if user_id not in withdraw_temp:
+        bot.send_message(message.chat.id, "❌ সময়সীমা শেষ! দয়া করে আবার উইথড্র মেনুতে যান।")
+        return
+        
+    withdraw_temp[user_id]['phone'] = phone_number
+    
+    bal = users_data[user_id]['balance']
+    msg = bot.send_message(
+        message.chat.id,
+        f"💳 আপনার নম্বর: `{phone_number}`\n\n"
+        f"💰 আপনার বর্তমান ব্যালেন্স: ৳`{bal}` টাকা\n\n"
+        f"💵 এখন আপনি কত টাকা উইথড্র করতে চান তা **সংখ্যার মাধ্যমে** লিখে পাঠান:\n"
+        f"*(যেমন: `1000` বা `1500`)*",
+        parse_mode="Markdown"
+    )
+    bot.register_next_step_handler(msg, get_withdraw_amount)
+
+def get_withdraw_amount(message):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
     username = message.from_user.username if message.from_user.username else "নেই"
+    
+    if user_id not in withdraw_temp:
+        bot.send_message(message.chat.id, "❌ একটি সমস্যা হয়েছে! দয়া করে আবার চেষ্টা করুন।")
+        return
+        
+    method = withdraw_temp[user_id]['method']
+    phone_number = withdraw_temp[user_id]['phone']
     bal = users_data[user_id]['balance']
     
     try:
-        parts = message.text.split()
-        phone_number = parts[0]
-        amount = float(parts[1])
+        amount = float(message.text.strip())
         
-        # যদি ১০০০ টাকার কম ট্রাই করে বা অ্যাকাউন্ট ব্যালেন্সের চেয়ে বেশি দেয়
+        # সর্বনিম্ন ১০০০ টাকা না হলে ব্যর্থ মেসেজ এবং এডমিন নোটিফিকেশন
         if amount < 1000:
             bot.send_message(
                 message.chat.id,
-                f"❌ **উইথড্র ব্যর্থ হয়েছে!**\n\nসর্বনিম্ন **১০০০ টাকা** না হলে উইথড্র করতে পারবেন না।\n• আপনি দিতে চেয়েছেন: ৳`{amount}`\n• আপনার বর্তমান ব্যালেন্স: ৳`{bal}`",
+                f"❌ **উইথড্র ব্যর্থ হয়েছে!**\n\nসর্বনিম্ন **১০০০ টাকা** হলে উইথড্র করতে পারবেন।\n• আপনি দিতে চেয়েছেন: ৳`{amount}`\n• আপনার বর্তমান ব্যালেন্স: ৳`{bal}`",
                 parse_mode="Markdown"
             )
-            # এডমিনকে চেষ্টা করার নোটিফিকেশন পাঠানো
             failed_notice = (
                 f"⚠️ **ব্যর্থ উইথড্র চেষ্টা!**\n\n"
                 f"👤 **ইউজার:** {first_name}\n"
@@ -359,7 +384,6 @@ def process_withdraw_request(message, method):
             parse_mode="Markdown"
         )
         
-        # এডমিনকে নতুন উইথড্র রিকোয়েস্টের পূর্ণাঙ্গ নোটিফিকেশন পাঠানো
         success_notice = (
             f"🚨 **নতুন উইথড্র রিকোয়েস্ট!**\n\n"
             f"👤 **ইউজার:** {first_name}\n"
@@ -375,7 +399,7 @@ def process_withdraw_request(message, method):
     except Exception:
         bot.send_message(
             message.chat.id,
-            "❌ **ভুল ফরম্যাট!**\n\nদয়া করে নম্বর এবং টাকার পরিমাণ একসাথে স্পেস দিয়ে লিখুন। (যেমন: `017xxxxxxxx 1000`)",
+            "❌ **ভুল পরিমাণ!** দয়া করে শুধু সঠিক সংখ্যায় টাকার পরিমাণ লিখুন (যেমন: `1000`)।",
             parse_mode="Markdown"
         )
 
