@@ -21,10 +21,10 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# ----------------- বটের কনফিগারেশন -----------------
+# ----------------- নতুন টোকেন ও এডমিন আইডি -----------------
 
-API_TOKEN = os.environ.get('BOT_TOKEN', '7610582828:AAEmh9rOgUnVAR-7Qt6H9UEEYnUCuw-Idsw')
-ADMIN_ID = 8961605027
+API_TOKEN = os.environ.get('BOT_TOKEN', '8858854627:AAHeJbgMFU_9cxmtnZyisRwzmmJ8UB1JIWI')
+ADMIN_ID = 8454171811
 
 CHANNEL_ID = "@wf_rahim_69_ff"  
 CHANNEL_LINK = "https://t.me/wf_rahim_69_ff"
@@ -45,7 +45,7 @@ except Exception as e:
 
 # 🔒 ডাটাবেজ হ্যান্ডলার
 def db_query(query, params=(), fetchone=False, fetchall=False, commit=False):
-    conn = sqlite3.connect('dynamic_bot_v2.db', timeout=10)
+    conn = sqlite3.connect('dynamic_bot_v3.db', timeout=10)
     cursor = conn.cursor()
     result = None
     try:
@@ -195,13 +195,11 @@ def get_inline_keyboard_for_level(parent_id, is_admin=False):
         markup.row(InlineKeyboardButton("⬅️ Go Back", callback_data=f"btn_{back_id}" if back_id != 0 else "go_main_menu"))
     return markup
 
-# 💰 রেফার বোনাস এবং অ্যাডমিন নোটিফিকেশন (ভেরিফাই ক্লিক করার পর কাজ করবে)
 def award_referral_bonus_if_eligible(user_id, first_name, username):
     user_info = db_query("SELECT referred_by, is_bonus_claimed FROM users WHERE user_id=?", (user_id,), fetchone=True)
     if user_info:
         referrer_id, is_claimed = user_info
         if referrer_id and int(referrer_id) != 0 and int(is_claimed) == 0:
-            # রেফারকারীর অ্যাকাউন্টে পয়েন্ট যোগ
             db_query("UPDATE users SET balance = balance + ? WHERE user_id=?", (BONUS_AMOUNT, referrer_id), commit=True)
             db_query("UPDATE users SET total_refers = total_refers + 1 WHERE user_id=?", (referrer_id,), commit=True)
             db_query("UPDATE users SET is_bonus_claimed = 1 WHERE user_id=?", (user_id,), commit=True)
@@ -227,13 +225,11 @@ def award_referral_bonus_if_eligible(user_id, first_name, username):
                     f"💰 রেফারকারী বোনাস পেয়েছেন: +৳{BONUS_AMOUNT} টাকা!"
                 )
                 
-                # অ্যাডমিনকে নোটিফিকেশন পাঠানো
                 bot.send_message(ADMIN_ID, ref_alert_msg, disable_web_page_preview=True)
                 
             except Exception as e:
                 print(f"Referral alert notification error: {e}")
 
-            # রেফারকারীকে মেসেজ
             try:
                 msg = (
                     "╔════════════════════╗\n"
