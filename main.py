@@ -1,5 +1,7 @@
 import os
+import time
 import urllib.parse
+import requests
 import telebot
 from telebot import types
 from flask import Flask
@@ -10,6 +12,9 @@ ADMIN_ID = 8454171811
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = Flask(__name__)
+
+# Render App URL (২৪/৭ অ্যাক্টিভ রাখার জন্য)
+RENDER_URL = "https://ff-auto-inviter.onrender.com"
 
 @app.route('/')
 def home():
@@ -348,7 +353,6 @@ def get_withdraw_amount(message):
                 parse_mode="Markdown"
             )
             
-            # এডমিন নোটিফিকেশন পাঠানো
             failed_notice = (
                 f"⚠️ **ব্যর্থ উইথড্র চেষ্টা!**\n\n"
                 f"👤 **ইউজার:** {first_name}\n"
@@ -389,7 +393,6 @@ def get_withdraw_amount(message):
             parse_mode="Markdown"
         )
         
-        # সফল উইথড্র নোটিফিকেশন এডমিনকে পাঠানো
         success_notice = (
             f"🚨 **নতুন উইথড্র রিকোয়েস্ট!**\n\n"
             f"👤 **ইউজার:** {first_name}\n"
@@ -412,12 +415,27 @@ def get_withdraw_amount(message):
             parse_mode="Markdown"
         )
 
+# ----------------- ২৪/৭ অন রাখার সেলফ-পিং ফাংশন -----------------
+
+def keep_alive_ping():
+    while True:
+        time.sleep(300)  # প্রতি ৫ মিনিট পর পর পিং করবে
+        try:
+            requests.get(RENDER_URL)
+        except Exception:
+            pass
+
 def run_bot():
     bot.infinity_polling(timeout=20, long_polling_timeout=20)
 
-t = Thread(target=run_bot)
-t.daemon = True
-t.start()
+# থ্রেড রান করা
+t_ping = Thread(target=keep_alive_ping)
+t_ping.daemon = True
+t_ping.start()
+
+t_bot = Thread(target=run_bot)
+t_bot.daemon = True
+t_bot.start()
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
